@@ -3,25 +3,28 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from typing import Tuple
+from config import Config
+
 
 
 class TinyAE(nn.Module):
     """
     A tiny Variational Autoencoder (VAE) for learning the latents briefly for LDMs.
     """
-    def __init__(self):
-        super(TinyVAE, self).__init__()
+    def __init__(self, config: Config):
+        super(TinyAE, self).__init__()
 
+        self.z_dim = config.z_dim
         self.encoder = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1),
             nn.SiLU(),
             nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
             nn.SiLU(),
-            nn.Conv2d(128, 8, kernel_size=3, padding=1),
+            nn.Conv2d(128, self.z_dim, kernel_size=3, padding=1),
 
         )
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(8, 128, kernel_size=3, padding=1),
+            nn.ConvTranspose2d(self.z_dim, 128, kernel_size=3, padding=1),
             nn.SiLU(),
             nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1),
             nn.SiLU(),
@@ -30,6 +33,7 @@ class TinyAE(nn.Module):
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         return self.encoder(x)
+    
     def decode(self, z: torch.Tensor) -> torch.Tensor:
         return self.decoder(z)
     
@@ -38,13 +42,51 @@ class TinyAE(nn.Module):
         x_recon = self.decode(z)
         return x_recon, z
 
+
+class TimeMLP(nn.Module):
+    def __init__(self, t_dim: int, out_dim: int):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(t_dim, out_dim),
+            nn.SiLU(),
+            nn.Linear(out_dim, out_dim),
+        )
+
+    def forward(self, t_emb):
+        return self.net(t_emb)
+    
+
 class VelocityDiT(nn.Module):
     """
     A tiny Diffusion Transformer (DiT) for learning the noise prediction briefly for LDMs.
     """
-    def __init__(self, input_dim=784, num_layers=4, num_heads=4, dim_feedforward=256):
+    def __init__(self, cfg: Config):
         super(VelocityDiT, self).__init__()
-        pass
+        self.cfg = cfg
+        self.token_dim = cfg.patch_size * cfg.patch_size * cfg.z_dim
 
-    def forward(self, x: torch.Tensor, t: torch.Tensor):
+        # input projection to the embed dim
+        self.in_projection = nn.Linear(self.token_dim, cfg.embed_dim)
+
+        # need positional encodings for the tokens, learned postional embeddings
+        self.n_tokens = (cfg.z_image_size // cfg.patch_size) ** 2
+        self.pos_embeddings = nn.Parameter(torch.zeros(1, self.n_tokens, cfg.embed_dim))
+
+        # need MLP for the timestep
+        self.time_mlp = TimeMLP(cfg.t_dim, cfg.embed_dim)
+        
+        # create the model with DIT blocks
+        self.blocks = nn.ModuleList([]) # TODO: fill in with DiT blocks
+        # self.out_adaln = AdaLN(dim, cond_dim=dim)
+        self.out_proj = nn.Linear(cfg.embed_dim, self.token_dim)
+
+
+    def forward(self, z_t: torch.Tensor, t: torch.Tensor):
+        """
+        Docstring for forward
+        
+        z_t: the latent of the input at timestep t
+        t: the timestep 
+        """
+
         pass
