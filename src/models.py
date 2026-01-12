@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 from typing import Tuple
 from config import Config
+from utils import patchify, depatchify
 
 
 
@@ -89,4 +90,20 @@ class VelocityDiT(nn.Module):
         t: the timestep 
         """
 
-        pass
+        # patchify the zt
+        patches = patchify(z_t, self.cfg.patch_size)  # (B, num_patches, token_dim)
+        # in project and combine with pos embeddings
+        token_emb = self.in_projection(patches) + self.pos_embeddings  # (B, num_patches, embed_dim)
+
+        # get the time embeddings and execute the time MLP
+        time_in = ... # (B, t_dim), need to fill in with sinusoidal embeddings
+        time_emb = self.time_mlp(time_in)  # (B, embed_dim)
+
+        # send the time conditioning and the input through the DiT blocks
+        for block in self.blocks:
+            pass  # TODO: fill in with DiT block forward
+
+        # outproject and depatchify
+        out_patches = self.out_proj(token_emb)  # (B, num_patches, token_dim)
+        z_pred = depatchify(out_patches, self.cfg.patch_size, self.cfg.z_image_size, self.cfg.z_image_size)  # (B, z_dim, H, W
+        return z_pred
