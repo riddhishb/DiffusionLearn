@@ -12,3 +12,4 @@ class Config:
     num_layers: int = 6
     t_dim: int = 128
     patch_size: int = 2
+    mlp_ratio: float = 4.0
