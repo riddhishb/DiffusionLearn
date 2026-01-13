@@ -17,19 +17,19 @@ class TinyAE(nn.Module):
 
         self.z_dim = config.z_dim
         self.encoder = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(3, 64, kernel_size=4, stride=2, padding=1),
             nn.SiLU(),
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
             nn.SiLU(),
             nn.Conv2d(128, self.z_dim, kernel_size=3, padding=1),
 
         )
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(self.z_dim, 128, kernel_size=3, padding=1),
+            nn.Conv2d(self.z_dim, 128, kernel_size=3, padding=1),
             nn.SiLU(),
-            nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1),
+            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
             nn.SiLU(),
-            nn.ConvTranspose2d(64, 3, kernel_size=3, stride=2, padding=1)
+            nn.ConvTranspose2d(64, 3, kernel_size=4, stride=2, padding=1)
         )
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
@@ -90,7 +90,7 @@ class DiTBlock(nn.Module):
 
     def forward(self, x: torch.Tensor, cond: torch.Tensor):
         res = self.norm1(x, cond)
-        attn_out = self.attn(res, res, res, need_weights=False)
+        attn_out, _ = self.attn(res, res, res, need_weights=False)
         x = x + attn_out
         res = self.norm2(x, cond)
         mlp_out = self.mlp_net(res)
@@ -125,6 +125,10 @@ class VelocityDiT(nn.Module):
 
         self.out_norm = AdaptiveLayerNorm(cfg.embed_dim, cfg.embed_dim)
         self.out_proj = nn.Linear(cfg.embed_dim, self.token_dim)
+
+        nn.init.zeros_(self.out_proj.weight)
+        nn.init.zeros_(self.out_proj.bias)
+        nn.init.normal_(self.pos_embeddings, std=0.02)
 
     def forward(self, z_t: torch.Tensor, t: torch.Tensor):
         """
